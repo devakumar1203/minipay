@@ -107,15 +107,36 @@ async def get_user_detail_endpoint(
     sources_res = await session.execute(sources_stmt)
     sources = sources_res.scalars().all()
 
+    # User transactions
+    txns = []
+    if wallet:
+        txn_stmt = (
+            select(Transaction)
+            .where(or_(Transaction.from_account_id == wallet.id, Transaction.to_account_id == wallet.id))
+            .order_by(Transaction.created_at.desc())
+            .limit(50)
+        )
+        txns_res = await session.execute(txn_stmt)
+        txns = txns_res.scalars().all()
+
     return AdminUserDetailResponse(
         id=user.id,
         email=user.email,
+        full_name=user.full_name,
+        mobile_no=user.mobile_no,
+        address_line1=user.address_line1,
+        address_line2=user.address_line2,
+        city=user.city,
+        state=user.state,
+        pincode=user.pincode,
+        onboarding_step=user.onboarding_step,
         role=user.role,
         status=user.status,
         blocked_reason=user.blocked_reason,
         blocked_at=user.blocked_at,
         wallet_balance=wallet_balance,
         funding_sources=[FundingSourceResponse.model_validate(s) for s in sources],
+        transactions=[TransactionResponse.model_validate(t) for t in txns],
         created_at=user.created_at,
     )
 

@@ -20,10 +20,19 @@ class AdminUserDetailResponse(BaseModel):
     email: str
     role: str
     status: str
+    full_name: Optional[str] = None
+    mobile_no: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    onboarding_step: Optional[int] = 4
     blocked_reason: Optional[str] = None
     blocked_at: Optional[datetime] = None
     wallet_balance: int
     funding_sources: List[FundingSourceResponse] = []
+    transactions: List[TransactionResponse] = []
     created_at: datetime
 
 
