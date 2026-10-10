@@ -25,6 +25,8 @@ import {
   User,
   FileText,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   bankAuthApi,
@@ -224,6 +226,7 @@ function BankLoginPage() {
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   if (user) {
@@ -267,13 +270,22 @@ function BankLoginPage() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           <button
             type="submit"
@@ -306,6 +318,8 @@ function BankRegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
@@ -506,27 +520,45 @@ function BankRegisterPage() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="Minimum 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  placeholder="Minimum 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3.5 py-2.5 pr-10 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Confirm Password</label>
-              <input
-                type="password"
-                required
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3.5 py-2.5 pr-10 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
@@ -746,7 +778,7 @@ function BankNotificationsPage() {
       const res = await bankLinkingApi.approveRequest(notif.reference_id);
       setActionMessage({
         id: notif.id,
-        msg: `Link Approved! MiniPay account successfully authorized.`,
+        msg: `Link Approved! PayPal account successfully authorized.`,
         type: 'success',
       });
       loadNotifications();
@@ -1044,14 +1076,14 @@ function BankConsentScreenPage() {
         <div className="flex items-center space-x-3 border-b border-slate-700 pb-4">
           <ShieldCheck className="w-8 h-8 text-emerald-400" />
           <div>
-            <h2 className="text-xl font-bold">Authorize MiniPay Access</h2>
+            <h2 className="text-xl font-bold">Authorize PayPal Access</h2>
             <p className="text-xs text-slate-400">{BANK_NAME} OAuth 2.0 Consent Screen</p>
           </div>
         </div>
 
         <div className="bg-slate-900 p-4 rounded-xl space-y-2 text-sm">
           <p className="text-slate-300">
-            <strong>MiniPay</strong> is requesting permission to link to your bank account for:
+            <strong>PayPal</strong> is requesting permission to link to your bank account for:
           </p>
           <ul className="text-xs text-slate-400 list-disc list-inside space-y-1">
             <li>Debiting your account for wallet top-ups and bank-funded P2P payments</li>
@@ -1117,7 +1149,7 @@ function BankConsentsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-      <h3 className="text-xl font-bold text-slate-900">Active Third-Party Consents (MiniPay)</h3>
+      <h3 className="text-xl font-bold text-slate-900">Active Third-Party Consents (PayPal)</h3>
       <div className="space-y-3">
         {consents.map((c) => (
           <div
@@ -1125,7 +1157,7 @@ function BankConsentsPage() {
             className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm"
           >
             <div>
-              <div className="font-bold text-slate-900">MiniPay Payment App</div>
+              <div className="font-bold text-slate-900">PayPal App</div>
               <div className="text-xs text-slate-500">
                 Account: {c.masked_account} | Limit: ₹{(c.per_txn_limit / 100).toFixed(2)}
               </div>

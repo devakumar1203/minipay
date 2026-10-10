@@ -37,6 +37,13 @@ import {
   MapPin,
   Landmark,
   CheckCircle2,
+  Eye,
+  EyeOff,
+  X,
+  ExternalLink,
+  Phone,
+  Mail,
+  Calendar,
 } from 'lucide-react';
 import { authApi, walletApi, paymentApi, fundingApi, adminApi } from './api/client';
 
@@ -122,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex items-center space-x-3 text-indigo-600 font-medium">
           <RefreshCw className="w-6 h-6 animate-spin" />
-          <span>Loading MiniPay...</span>
+          <span>Loading PayPal...</span>
         </div>
       </div>
     );
@@ -157,7 +164,7 @@ function Navbar() {
               <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-sm">
                 P
               </div>
-              <span className="font-bold text-xl text-slate-900 tracking-tight">MiniPay</span>
+              <span className="font-bold text-xl text-slate-900 tracking-tight">PayPal</span>
             </Link>
 
             <div className="hidden md:flex space-x-4">
@@ -278,11 +285,14 @@ export function StatusBadge({ status }: { status: string }) {
 function LoginPage() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  if (user && user.role === 'ADMIN') return <Navigate to="/admin" replace />;
   if (user && (user.onboarding_step ?? 4) >= 4) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -292,7 +302,12 @@ function LoginPage() {
     try {
       const res = await authApi.login(email, password);
       await login(res.access_token);
-      if (res.onboarding_step && res.onboarding_step < 4) {
+      const redirect = new URLSearchParams(location.search).get('redirect');
+      if (redirect) {
+        navigate(redirect);
+      } else if (email.toLowerCase().includes('admin')) {
+        navigate('/admin');
+      } else if (res.onboarding_step && res.onboarding_step < 4) {
         navigate('/register');
       } else {
         navigate('/');
@@ -304,6 +319,11 @@ function LoginPage() {
     }
   };
 
+  const handleAdminQuickFill = () => {
+    setEmail('admin@minipay.com');
+    setPassword('Admin123!');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-sm border border-slate-200 p-8">
@@ -311,8 +331,8 @@ function LoginPage() {
           <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-md mb-3">
             P
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">Sign in to MiniPay</h2>
-          <p className="text-sm text-slate-500 mt-1">Distributed Systems Learning Platform</p>
+          <h2 className="text-2xl font-bold text-slate-900">Sign in to PayPal</h2>
+          <p className="text-sm text-slate-500 mt-1">Payment & Transfer Platform</p>
         </div>
 
         {error && (
@@ -336,14 +356,23 @@ function LoginPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -362,9 +391,18 @@ function LoginPage() {
           </Link>
         </div>
 
-        <div className="mt-8 p-3 bg-slate-50 rounded-lg text-xs text-slate-500 border border-slate-100">
-          <div className="font-semibold text-slate-700 mb-1">Demo Credentials:</div>
-          <div>Admin: <code>admin@minipay.com</code> / <code>Admin123!</code></div>
+        <div className="mt-8 p-3.5 bg-slate-50 rounded-xl text-xs text-slate-500 border border-slate-200 flex items-center justify-between">
+          <div>
+            <div className="font-semibold text-slate-700 mb-0.5">Admin Account:</div>
+            <div><code>admin@minipay.com</code> / <code>Admin123!</code></div>
+          </div>
+          <button
+            type="button"
+            onClick={handleAdminQuickFill}
+            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg text-xs transition"
+          >
+            Auto-fill Admin
+          </button>
         </div>
       </div>
     </div>
@@ -397,6 +435,8 @@ function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Step 2: Personal Info
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -543,7 +583,7 @@ function RegisterPage() {
           <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-lg mb-3">
             P
           </div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome to MiniPay</h2>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome to PayPal</h2>
           <p className="text-sm text-slate-500 mt-1">Complete your onboarding journey step by step</p>
         </div>
 
@@ -629,27 +669,45 @@ function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat your password"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat your password"
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"
@@ -932,7 +990,26 @@ function DashboardPage() {
   const pendingSources = sources.filter((s) => s.status === 'PENDING');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Admin Session Indicator */}
+      {user?.role === 'ADMIN' && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center space-x-3 text-amber-900">
+            <Shield className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div>
+              <span className="font-bold text-sm">System Administrator Session</span>
+              <p className="text-xs text-amber-700">You are logged in with administrator privileges.</p>
+            </div>
+          </div>
+          <Link
+            to="/admin"
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-sm transition"
+          >
+            Open Admin Control Panel &rarr;
+          </Link>
+        </div>
+      )}
+
       {/* Pending Bank Linking Banner */}
       {pendingSources.length > 0 && (
         <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start space-x-3 shadow-sm">
@@ -948,7 +1025,7 @@ function DashboardPage() {
                   .map((s) => `${s.bank_id === 'bank_x' ? 'Bank A' : 'Bank B'} (${s.masked_account})`)
                   .join(', ')}
               </span>
-              . MiniPay is awaiting your approval from the bank.
+              . PayPal is awaiting your approval from the bank.
             </div>
             <div className="mt-2 text-xs text-amber-800 flex items-center space-x-3">
               <span>👉 Open your Bank portal:</span>
@@ -1139,7 +1216,7 @@ function SendMoneyPage() {
     <div className="max-w-xl mx-auto px-4 py-10">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Send Money (P2P)</h2>
-        <p className="text-sm text-slate-500 mb-6">Instant transfer to any active MiniPay user</p>
+        <p className="text-sm text-slate-500 mb-6">Instant transfer to any active PayPal user</p>
 
         {error && (
           <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start space-x-2">
@@ -1166,7 +1243,7 @@ function SendMoneyPage() {
             <div>
               <div className="font-semibold mb-0.5">Bank Account Linking Pending</div>
               <div>
-                Your bank link request is awaiting approval in your Bank portal. In the meantime, you can transfer money seamlessly using your <strong>MiniPay Wallet</strong>!
+                Your bank link request is awaiting approval in your Bank portal. In the meantime, you can transfer money seamlessly using your <strong>PayPal Wallet</strong>!
               </div>
             </div>
           </div>
@@ -1210,7 +1287,7 @@ function SendMoneyPage() {
               className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 bg-white"
             >
               <option value="WALLET">
-                MiniPay Wallet (Balance: ₹{(balance / 100).toFixed(2)})
+                PayPal Wallet (Balance: ₹{(balance / 100).toFixed(2)})
               </option>
               {fundingSources
                 .filter((s) => s.status === 'ACTIVE')
@@ -1628,7 +1705,7 @@ function FundingPage() {
           </div>
           <p className="text-xs text-amber-800">
             You have bank account(s) waiting for approval in your Bank portal notifications.
-            Once approved, you will be able to Add Money to your MiniPay wallet or Withdraw funds to your bank account right here!
+            Once approved, you will be able to Add Money to your PayPal wallet or Withdraw funds to your bank account right here!
           </p>
         </div>
       ) : null}
@@ -1872,50 +1949,103 @@ function TransactionsPage() {
 // ==========================================
 function AdminLayout() {
   const { user } = useAuth();
+  const location = useLocation();
+
   if (!user || user.role !== 'ADMIN') {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl p-8 shadow-sm border border-slate-200 text-center space-y-4">
+          <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+            <Shield className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">Administrator Access Required</h2>
+          <p className="text-sm text-slate-600">
+            {user
+              ? `You are currently signed in as ${user.email} (Regular User). Please sign in with an Administrator account to access this portal.`
+              : 'Please sign in with administrator credentials to access this portal.'}
+          </p>
+          <div className="pt-2">
+            <Link
+              to="/login?redirect=/admin"
+              className="inline-block w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm transition"
+            >
+              Sign In as Administrator
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
+
+  const isActive = (path: string) => {
+    if (path === '/admin') {
+      return location.pathname === '/admin' || location.pathname === '/admin/';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center space-x-3 mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <Shield className="w-6 h-6 text-amber-600" />
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">MiniPay Administrator Control Panel</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">PayPal Administrator Control Panel</h1>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Admin Sidebar Navigation */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-1 h-fit">
-            <Link to="/admin" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
+            <Link
+              to="/admin"
+              className={`flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg transition ${
+                isActive('/admin') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
               <Activity className="w-4 h-4 text-indigo-600" />
               <span>Dashboard</span>
             </Link>
-            <Link to="/admin/users" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
+            <Link
+              to="/admin/users"
+              className={`flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg transition ${
+                isActive('/admin/users') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
               <Users className="w-4 h-4 text-indigo-600" />
               <span>Users & Blocking</span>
             </Link>
-            <Link to="/admin/review" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
+            <Link
+              to="/admin/review"
+              className={`flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg transition ${
+                isActive('/admin/review') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
               <AlertTriangle className="w-4 h-4 text-orange-600" />
               <span>Fraud Review Queue</span>
             </Link>
-            <Link to="/admin/transactions" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
+            <Link
+              to="/admin/transactions"
+              className={`flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg transition ${
+                isActive('/admin/transactions') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
               <History className="w-4 h-4 text-indigo-600" />
               <span>Transactions & Reversals</span>
             </Link>
-            <Link to="/admin/reconciliation" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
-              <RefreshCw className="w-4 h-4 text-indigo-600" />
-              <span>Reconciliation</span>
-            </Link>
-            <Link to="/admin/fraud-config" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
+            <Link
+              to="/admin/fraud-config"
+              className={`flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg transition ${
+                isActive('/admin/fraud-config') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
               <SettingsIcon className="w-4 h-4 text-indigo-600" />
               <span>Fraud Thresholds</span>
             </Link>
-            <Link to="/admin/chaos" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
-              <Zap className="w-4 h-4 text-amber-600" />
-              <span>Bank Chaos Controls</span>
-            </Link>
-            <Link to="/admin/audit" className="flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50">
+            <Link
+              to="/admin/audit"
+              className={`flex items-center space-x-2.5 px-3 py-2 text-sm font-medium rounded-lg transition ${
+                isActive('/admin/audit') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
               <FileText className="w-4 h-4 text-slate-500" />
               <span>Audit Log</span>
             </Link>
@@ -1924,14 +2054,13 @@ function AdminLayout() {
           {/* Admin Content Area */}
           <div className="md:col-span-3">
             <Routes>
-              <Route path="/" element={<AdminDashboardPage />} />
-              <Route path="/users" element={<AdminUsersPage />} />
-              <Route path="/review" element={<AdminReviewQueuePage />} />
-              <Route path="/transactions" element={<AdminTransactionsPage />} />
-              <Route path="/reconciliation" element={<AdminReconciliationPage />} />
-              <Route path="/fraud-config" element={<AdminFraudConfigPage />} />
-              <Route path="/chaos" element={<AdminChaosPage />} />
-              <Route path="/audit" element={<AdminAuditLogPage />} />
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="review" element={<AdminReviewQueuePage />} />
+              <Route path="transactions" element={<AdminTransactionsPage />} />
+              <Route path="fraud-config" element={<AdminFraudConfigPage />} />
+              <Route path="audit" element={<AdminAuditLogPage />} />
+              <Route path="*" element={<Navigate to="" replace />} />
             </Routes>
           </div>
         </div>
@@ -1988,18 +2117,41 @@ function AdminDashboardPage() {
 function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'BLOCKED'>('ALL');
   const [reason, setReason] = useState('');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [actionType, setActionType] = useState<'block' | 'unblock' | 'unlock' | null>(null);
 
+  // User detail & transactions modal state
+  const [inspectingUserId, setInspectingUserId] = useState<string | null>(null);
+  const [inspectedDetail, setInspectedDetail] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
   const loadUsers = async () => {
-    const res = await adminApi.getUsers({ search });
+    const res = await adminApi.getUsers({
+      search: search || undefined,
+      status: statusFilter === 'ALL' ? undefined : statusFilter,
+    });
     setUsers(res.items || []);
   };
 
   useEffect(() => {
     loadUsers();
-  }, [search]);
+  }, [search, statusFilter]);
+
+  const handleOpenDetail = async (userId: string) => {
+    setInspectingUserId(userId);
+    setLoadingDetail(true);
+    setInspectedDetail(null);
+    try {
+      const detail = await adminApi.getUserDetail(userId);
+      setInspectedDetail(detail);
+    } catch (err: any) {
+      alert(err.detail || 'Failed to fetch user account details.');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   const handleAction = async () => {
     if (!selectedUser || !reason) return;
@@ -2015,89 +2167,413 @@ function AdminUsersPage() {
       setActionType(null);
       setReason('');
       loadUsers();
+      if (inspectingUserId === selectedUser.id) {
+        handleOpenDetail(selectedUser.id);
+      }
     } catch (err: any) {
       alert(err.detail || 'Action failed');
     }
   };
 
+  const totalCount = users.length;
+  const activeCount = users.filter((u) => u.status === 'ACTIVE').length;
+  const blockedCount = users.filter((u) => u.status === 'BLOCKED').length;
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-900">User Management & Propagation</h3>
-        <input
-          type="text"
-          placeholder="Search by email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="px-3.5 py-2 rounded-lg border border-slate-300 text-sm"
-        />
+    <div className="space-y-6">
+      {/* Top Counters Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Users</div>
+            <div className="text-2xl font-black text-slate-900 mt-0.5">{totalCount}</div>
+            <div className="text-xs text-slate-400">Registered platform accounts</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Accounts</div>
+            <div className="text-2xl font-black text-emerald-600 mt-0.5">{activeCount}</div>
+            <div className="text-xs text-slate-400">In good operational standing</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Blocked Accounts</div>
+            <div className="text-2xl font-black text-red-600 mt-0.5">{blockedCount}</div>
+            <div className="text-xs text-slate-400">Restricted from transactions</div>
+          </div>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b bg-slate-50 text-xs font-semibold text-slate-600 uppercase">
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td className="px-4 py-3 font-medium">{u.email}</td>
-                <td className="px-4 py-3 capitalize">{u.role}</td>
-                <td className="px-4 py-3"><StatusBadge status={u.status} /></td>
-                <td className="px-4 py-3 space-x-2">
-                  {u.status === 'ACTIVE' ? (
-                    <button
-                      onClick={() => { setSelectedUser(u); setActionType('block'); }}
-                      className="text-xs font-semibold text-red-600 hover:underline"
-                    >
-                      Block
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => { setSelectedUser(u); setActionType('unblock'); }}
-                      className="text-xs font-semibold text-emerald-600 hover:underline"
-                    >
-                      Unblock
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setSelectedUser(u); setActionType('unlock'); }}
-                    className="text-xs font-semibold text-slate-600 hover:underline"
-                  >
-                    Unlock Lockout
-                  </button>
-                </td>
+      {/* Main Table Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">User Directory & Account Controls</h3>
+            <p className="text-xs text-slate-500">View user profiles, balance, linked banks, and transaction histories</p>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search by email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 pr-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active Only</option>
+              <option value="BLOCKED">Blocked Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50 text-xs font-semibold text-slate-600 uppercase">
+                <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">Contact & KYC</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-slate-500 text-sm">
+                    No users matching search or filter.
+                  </td>
+                </tr>
+              ) : (
+                users.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50/70 transition">
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold text-slate-900">{u.full_name || 'No Name Set'}</div>
+                      <div className="text-xs text-slate-500 font-mono">{u.email}</div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="text-xs text-slate-700">{u.mobile_no || 'No Mobile'}</div>
+                      <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">
+                        {u.onboarding_step >= 4 ? 'KYC Complete (Step 4)' : `Onboarding Step ${u.onboarding_step || 1}`}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                        u.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <StatusBadge status={u.status} />
+                    </td>
+                    <td className="px-4 py-3.5 text-right space-x-2">
+                      <button
+                        onClick={() => handleOpenDetail(u.id)}
+                        className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition inline-flex items-center space-x-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Details & Txns</span>
+                      </button>
+
+                      {u.role !== 'ADMIN' && (
+                        <>
+                          {u.status === 'ACTIVE' ? (
+                            <button
+                              onClick={() => { setSelectedUser(u); setActionType('block'); }}
+                              className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded-lg transition"
+                            >
+                              Block
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setSelectedUser(u); setActionType('unblock'); }}
+                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition"
+                            >
+                              Unblock
+                            </button>
+                          )}
+                          <button
+                            onClick={() => { setSelectedUser(u); setActionType('unlock'); }}
+                            className="px-2 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-medium"
+                          >
+                            Unlock
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* User Details & Transactions Modal */}
+      {inspectingUserId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  {inspectedDetail?.full_name || 'User Account Details'}
+                </h3>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">{inspectedDetail?.email}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                {inspectedDetail && <StatusBadge status={inspectedDetail.status} />}
+                <button
+                  onClick={() => { setInspectingUserId(null); setInspectedDetail(null); }}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {loadingDetail ? (
+              <div className="py-16 text-center text-indigo-600 font-medium flex items-center justify-center space-x-2">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>Loading account profile & transactions...</span>
+              </div>
+            ) : inspectedDetail ? (
+              <div className="space-y-6 overflow-y-auto pr-1">
+                {/* Blocked banner if applicable */}
+                {inspectedDetail.status === 'BLOCKED' && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-900 text-sm">
+                    <div className="font-bold flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                      <span>Account is Currently Blocked</span>
+                    </div>
+                    <div className="text-xs text-red-700 mt-1">
+                      Reason: <strong>{inspectedDetail.blocked_reason || 'Administrative Action'}</strong>
+                    </div>
+                    {inspectedDetail.blocked_at && (
+                      <div className="text-[11px] text-red-500 mt-0.5">
+                        Blocked At: {new Date(inspectedDetail.blocked_at).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Account Details 2-Column Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Profile info card */}
+                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1.5">
+                      <UserIcon className="w-4 h-4 text-indigo-600" />
+                      <span>Profile & KYC Information</span>
+                    </div>
+                    <div className="space-y-1.5 text-xs text-slate-700">
+                      <div><span className="text-slate-400">Full Name:</span> <strong>{inspectedDetail.full_name || 'N/A'}</strong></div>
+                      <div><span className="text-slate-400">Email:</span> <strong>{inspectedDetail.email}</strong></div>
+                      <div><span className="text-slate-400">Mobile Phone:</span> <strong>{inspectedDetail.mobile_no || 'N/A'}</strong></div>
+                      <div><span className="text-slate-400">KYC Onboarding:</span> <strong>Step {inspectedDetail.onboarding_step || 1} / 4</strong></div>
+                      <div><span className="text-slate-400">Account Role:</span> <strong>{inspectedDetail.role}</strong></div>
+                      <div><span className="text-slate-400">Member Since:</span> <strong>{new Date(inspectedDetail.created_at).toLocaleDateString()}</strong></div>
+                      <div><span className="text-slate-400 font-mono">User ID:</span> <code className="text-[10px] bg-white px-1.5 py-0.5 rounded border">{inspectedDetail.id}</code></div>
+                    </div>
+                  </div>
+
+                  {/* Address info card */}
+                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1.5">
+                      <MapPin className="w-4 h-4 text-indigo-600" />
+                      <span>Residential Address</span>
+                    </div>
+                    <div className="space-y-1.5 text-xs text-slate-700">
+                      <div><span className="text-slate-400">Address Line 1:</span> <strong>{inspectedDetail.address_line1 || 'N/A'}</strong></div>
+                      <div><span className="text-slate-400">Address Line 2:</span> <strong>{inspectedDetail.address_line2 || 'None'}</strong></div>
+                      <div><span className="text-slate-400">City / State:</span> <strong>{inspectedDetail.city || 'N/A'}, {inspectedDetail.state || ''}</strong></div>
+                      <div><span className="text-slate-400">PIN Code:</span> <strong>{inspectedDetail.pincode || 'N/A'}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Balances & Bank Accounts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Wallet Balance Card */}
+                  <div className="p-5 bg-indigo-900 text-white rounded-2xl shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="text-xs text-indigo-200 font-medium uppercase tracking-wider flex items-center space-x-1.5">
+                        <Wallet className="w-4 h-4" />
+                        <span>PayPal Wallet Balance</span>
+                      </div>
+                      <div className="text-3xl font-black mt-2">
+                        ₹{(inspectedDetail.wallet_balance / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-indigo-300 mt-0.5">({inspectedDetail.wallet_balance} paise)</div>
+                    </div>
+                  </div>
+
+                  {/* Linked Bank Accounts */}
+                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1.5">
+                      <CreditCard className="w-4 h-4 text-indigo-600" />
+                      <span>Linked Bank Accounts ({inspectedDetail.funding_sources?.length || 0})</span>
+                    </div>
+                    {inspectedDetail.funding_sources?.length === 0 ? (
+                      <p className="text-xs text-slate-500 pt-2">No bank accounts linked yet.</p>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        {inspectedDetail.funding_sources.map((s: any) => (
+                          <div key={s.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 text-xs">
+                            <div>
+                              <div className="font-bold text-slate-900">{s.bank_id === 'bank_x' ? 'Bank A' : 'Bank B'}</div>
+                              <div className="text-slate-500 font-mono text-[11px]">{s.masked_account}</div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {s.is_default && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold">Default</span>}
+                              <StatusBadge status={s.status} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Transactions Done by this User */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                      <History className="w-4 h-4 text-indigo-600" />
+                      <span>User Transaction History ({inspectedDetail.transactions?.length || 0})</span>
+                    </h4>
+                  </div>
+
+                  {inspectedDetail.transactions?.length === 0 ? (
+                    <div className="p-6 bg-slate-50 rounded-2xl text-center text-xs text-slate-500">
+                      No transactions executed by this user yet.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 max-h-60 overflow-y-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 uppercase font-semibold text-slate-600">
+                          <tr>
+                            <th className="px-3 py-2">Txn ID</th>
+                            <th className="px-3 py-2">Type</th>
+                            <th className="px-3 py-2">Amount</th>
+                            <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Date & Time</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {inspectedDetail.transactions.map((t: any) => (
+                            <tr key={t.id} className="hover:bg-slate-50/50">
+                              <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{t.id.slice(0, 8)}...</td>
+                              <td className="px-3 py-2 font-semibold text-slate-800">{t.type}</td>
+                              <td className="px-3 py-2 font-bold text-slate-900">₹{(t.amount / 100).toFixed(2)}</td>
+                              <td className="px-3 py-2"><StatusBadge status={t.status} /></td>
+                              <td className="px-3 py-2 text-slate-500">{new Date(t.created_at).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Actions Footer */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <div className="space-x-2">
+                    {inspectedDetail.role !== 'ADMIN' && (
+                      inspectedDetail.status === 'ACTIVE' ? (
+                        <button
+                          onClick={() => { setSelectedUser(inspectedDetail); setActionType('block'); }}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-xl shadow-sm transition"
+                        >
+                          Block This User
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setSelectedUser(inspectedDetail); setActionType('unblock'); }}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition"
+                        >
+                          Unblock This User
+                        </button>
+                      )
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => { setInspectingUserId(null); setInspectedDetail(null); }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Block/Unblock Action Confirmation Modal */}
       {actionType && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4">
-            <h4 className="font-bold text-slate-900 capitalize">{actionType} User: {selectedUser.email}</h4>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+            <h4 className="font-bold text-slate-900 capitalize text-base">
+              {actionType} User: {selectedUser.email}
+            </h4>
+            <p className="text-xs text-slate-500">
+              {actionType === 'block'
+                ? 'Blocking this user will immediately revoke login sessions and reject all money-moving operations across all backend instances.'
+                : 'Unblocking this user will restore full account access.'}
+            </p>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Reason (Mandatory Audit Log)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Mandatory Reason (Audit Log)
+              </label>
               <textarea
                 required
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Reason for this administrative action..."
-                className="w-full px-3 py-2 border rounded-lg text-sm"
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                rows={3}
               />
             </div>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => { setSelectedUser(null); setActionType(null); }} className="px-3 py-1.5 text-sm text-slate-600">
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                onClick={() => { setSelectedUser(null); setActionType(null); }}
+                className="px-3.5 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition"
+              >
                 Cancel
               </button>
-              <button onClick={handleAction} className="px-4 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg">
-                Confirm
+              <button
+                onClick={handleAction}
+                disabled={!reason.trim()}
+                className={`px-4 py-2 text-white text-sm font-semibold rounded-xl shadow-sm transition disabled:opacity-50 ${
+                  actionType === 'block' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                Confirm {actionType.toUpperCase()}
               </button>
             </div>
           </div>
