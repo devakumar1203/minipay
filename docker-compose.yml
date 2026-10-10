@@ -1,0 +1,219 @@
+networks:
+  minipay-network:
+    driver: bridge
+
+volumes:
+  paypal-db-data:
+  bank-x-db-data:
+  bank-y-db-data:
+
+services:
+  # ──────────────── Databases ────────────────
+  paypal-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: paypal
+      POSTGRES_USER: paypal
+      POSTGRES_PASSWORD: paypal
+    ports:
+      - "5432:5432"
+    volumes:
+      - paypal-db-data:/var/lib/postgresql/data
+    networks:
+      - minipay-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paypal -d paypal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bank-x-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: bank_x
+      POSTGRES_USER: bank_x
+      POSTGRES_PASSWORD: bank_x
+    ports:
+      - "5433:5432"
+    volumes:
+      - bank-x-db-data:/var/lib/postgresql/data
+    networks:
+      - minipay-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bank_x -d bank_x"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bank-y-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: bank_y
+      POSTGRES_USER: bank_y
+      POSTGRES_PASSWORD: bank_y
+    ports:
+      - "5434:5432"
+    volumes:
+      - bank-y-db-data:/var/lib/postgresql/data
+    networks:
+      - minipay-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bank_y -d bank_y"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────── Redis ────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - minipay-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────── RabbitMQ ────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - minipay-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ──────────────── PayPal Backend (Instance 1) ────────────────
+  paypal-backend:
+    image: minipay-paypal-backend:latest
+    build: ./paypal-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    networks:
+      - minipay-network
+    depends_on:
+      paypal-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ──────────────── PayPal Backend (Instance 2) ────────────────
+  payment-instance-2:
+    image: minipay-payment-instance-2:latest
+    build: ./paypal-backend
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    networks:
+      - minipay-network
+    depends_on:
+      paypal-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ──────────────── Bank X Backend (Bank A) ────────────────
+  bank-x-backend:
+    image: minipay-bank-x-backend:latest
+    build: ./bank-backend
+    ports:
+      - "8010:8010"
+    environment:
+      BANK_ID: bank_x
+      BANK_NAME: "Bank A"
+      DATABASE_URL: postgresql+asyncpg://bank_x:bank_x@bank-x-db:5432/bank_x
+      API_KEY: bank-x-api-key-secret
+      HMAC_SECRET: shared-hmac-secret-for-signing
+      SEED_BALANCE: "1000000"
+      PORT: "8010"
+    networks:
+      - minipay-network
+    depends_on:
+      bank-x-db:
+        condition: service_healthy
+
+  # ──────────────── Bank Y Backend (Bank B) ────────────────
+  bank-y-backend:
+    image: minipay-bank-y-backend:latest
+    build: ./bank-backend
+    ports:
+      - "8020:8020"
+    environment:
+      BANK_ID: bank_y
+      BANK_NAME: "Bank B"
+      DATABASE_URL: postgresql+asyncpg://bank_y:bank_y@bank-y-db:5432/bank_y
+      API_KEY: bank-y-api-key-secret
+      HMAC_SECRET: shared-hmac-secret-for-signing
+      SEED_BALANCE: "1000000"
+      PORT: "8020"
+    networks:
+      - minipay-network
+    depends_on:
+      bank-y-db:
+        condition: service_healthy
+
+  # ──────────────── PayPal Web Frontend ────────────────
+  paypal-web:
+    image: minipay-paypal-web:latest
+    build: ./paypal-web
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost/api
+    networks:
+      - minipay-network
+
+  # ──────────────── Bank X Web Frontend (Bank A) ────────────────
+  bank-web-x:
+    image: minipay-bank-web-x:latest
+    build: ./bank-web
+    ports:
+      - "3010:3000"
+    environment:
+      VITE_BANK_API_URL: http://localhost:8010
+      VITE_BANK_NAME: "Bank A"
+      VITE_PAYPAL_URL: http://localhost:3000
+    networks:
+      - minipay-network
+
+  # ──────────────── Bank Y Web Frontend (Bank B) ────────────────
+  bank-web-y:
+    image: minipay-bank-web-y:latest
+    build: ./bank-web
+    ports:
+      - "3020:3000"
+    environment:
+      VITE_BANK_API_URL: http://localhost:8020
+      VITE_BANK_NAME: "Bank B"
+      VITE_PAYPAL_URL: http://localhost:3000
+    networks:
+      - minipay-network
+
+  # ──────────────── Nginx (Load Balancer / Reverse Proxy) ────────────────
+  nginx:
+    image: minipay-nginx:latest
+    build: ./nginx
+    ports:
+      - "80:80"
+    networks:
+      - minipay-network
+    depends_on:
+      - paypal-backend
+      - payment-instance-2
